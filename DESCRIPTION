@@ -1,11 +1,10 @@
-Package: RecursiveConsensusCluster
+Package: RecursiveConsensusClustering
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Recursive Consensus Clustering
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Author: Pranali S
+Maintainer: Pranali S <pranalis018@gmail.com>
+Description: An algorithm for clustering bulk and single-cell transcriptomic data
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
