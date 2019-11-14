@@ -1,0 +1,9 @@
+Expression Matrix,input.csv
+SampleInfo File,sampleInfo.csv
+Minimum Slope Threshold,0.175
+Minimum #samples for clustering,5
+Minimum line length,30
+%of genes/features for clustering,3
+%of genes to be differentially expressed,10
+Type of dataset,singleCell
+Output Dir,./
