@@ -7,4 +7,4 @@ To download the latest version of the package please use the following commands:
 
 install.packages("devtools")
 
-devtools:install_github("MSCTR/RecursiveConsensusClustering")
+devtools::install_github("MSCTR/RecursiveConsensusClustering")
