@@ -862,7 +862,7 @@ stability = function(cluster_file, selected_cluster, output_dir){
 ########################################################################################################################################################################################################
 
 
-CDF_RCC = function(zscore_mat,output_dir,maxK,times,rIN, selected_mat, minGenesP){
+CDF_RCC = function(zscore_mat,output_dir,maxK,times,rIN, selected_mat){
 	zscore_mat = as.matrix(zscore_mat)
 	maxK = maxK
 	color = c("blue", "red", "yellow", "green", "hotpink", "orange", "brown", "purple", "cyan")
@@ -1183,11 +1183,11 @@ RCC_clus = function(config_file){
   innerLinkage <<- "ward.D2"
   corUse <<- "everything"
   threshold <<- as.numeric(as.vector(conf_file[3,2]))
-  min_samples = as.numeric(as.vector(conf_file[4,2]))
+  min_samples <<- as.numeric(as.vector(conf_file[4,2]))
   min_line_len <<- as.numeric(as.vector(conf_file[5,2]))
-  var_genes_percent = as.numeric(as.vector(conf_file[6,2]))
+  var_genes_percent <<- as.numeric(as.vector(conf_file[6,2]))
   minGenesP <<- as.numeric(as.vector(conf_file[7,2]))
-  dataset = as.character(conf_file[8,2])
+  dataset <<- as.character(conf_file[8,2])
   finalOut <<- as.character(conf_file[9,2])
   zscore_mat = NULL
   colnames(sampleInfo) = init_cols
@@ -1225,7 +1225,7 @@ RCC_clus = function(config_file){
 			rIN = round(runif(8, min =4, max = 12),0)
 			iterations = 8
 			cluster_parallel <<- pforeach(times = 1:iterations, .combine = append, .parallel = T) ({
-				cluster_slopes1 = CDF_RCC(zscore_mat,output_dir,maxK, times, rIN, selected_mat, minGenesP)
+				cluster_slopes1 = CDF_RCC(zscore_mat,output_dir,maxK, times, rIN, selected_mat)
 			})
 
 			if(length(cluster_parallel) == 0){
