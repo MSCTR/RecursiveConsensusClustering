@@ -822,280 +822,282 @@ stability = function(cluster_file, selected_cluster, output_dir){
 ########################################################################################################################################################################################################
 
 
+CDF_RCC = function(zscore_mat,output_dir,maxK,times,rIN, selected_mat, minGenesP){
+	zscore_mat = as.matrix(zscore_mat)
+	maxK = maxK
+	color = c("blue", "red", "yellow", "green", "hotpink", "orange", "brown", "purple", "cyan")
+
+	output_dir = paste0(output_dir, "_",times)
+	diffSlope = 0.0349066	
+
+	if(times == 1){
+		pItem = 0.6
+		pFeature = 0.8}
+
+	if(times == 2){
+		pItem = 0.6
+		pFeature = 1}
+
+	if(times == 3){
+		pItem = 0.7
+		pFeature = 0.8}
+
+	if(times == 4){
+		pItem = 0.7
+		pFeature = 1}
+
+	if(times == 5){
+		pItem = 0.8
+		pFeature = 0.8}
+
+	if(times == 6){
+		pItem = 0.8
+		pFeature = 1}
+
+	if(times == 7){
+		pItem = 0.9
+		pFeature = 0.8}
+
+	if(times == 8){
+		pItem = 0.9
+		pFeature = 1}
+
+	interval = 5
+	sClusVal = 0.8
+	oClusVal = 0.2
+	tempClus = NULL
+	allSlopes = NULL
+	allLines = NULL
+	sVal = NULL
+	yVal = NULL
+	fdrGenes = NULL
+	minGenesR = round(((nrow(selected_mat) * minGenesP)/100),0)
+	alg = "km"		#algorithm used for concensus clustering
+	dis = "euclidean"		#distance matrix to be used
+	repCount = 100
+	innerLinkage = "ward.D2"
+	corUse = "everything"
+	
+	randSeed = (runif(1, min = 1, max = 10^(rIN[times])))/10000
+	seeds = randSeed
+	results = ConsensusClusterPlus(zscore_mat,maxK=maxK,
+	reps=repCount,pItem=pItem,
+	pFeature=pFeature,title= output_dir,clusterAlg=alg,
+	innerLinkage= innerLinkage, finalLinkage=innerLinkage,
+	distance=dis,plot="png",writeTable=T, seed = randSeed, verbose = F)
+	clusSlopes = NULL
+
+	files1 = list.files(output_dir, pattern = "*Class.csv", full.names=T)
+	files2 = list.files(output_dir, pattern = "*atrix.csv", full.names=T)
+	png(paste0(as.numeric(Sys.time()),times,".png"))
+	for(i in 1:length(files1)){
+		print(i)
+		data = as.data.frame(fread(files2[i]))
+		rownames(data) = data[,1]
+		data = data[,-1]
+		m = upperTriangle(data, diag = F, byrow = T)
+		mat = as.vector(m)
+
+		info = read.csv(files1[i], header = F)
+		rownames(info) = info[,1]
+		a = as.data.frame(table(info[,2]))
+
+		s = sum((a[,2]*(a[,2] - 1)/2))
+		s = 1 - (s/length(mat))
+		s1 = s - 0.05
+		s2 = s + 0.05
+
+		cdf = 0
+		cdfP = NULL
+		grp_counts = NULL
+
+		for(c in 0:100){
+			cutoff  = c/100
+			grp_counts = append(grp_counts,cutoff)
+			cdfC = (length(subset(mat, mat <= cutoff)))/(length(mat))
+			cdf = cdf + cdfC
+			cdfP = append(cdfP, cdfC)
+		}
+		grp_mids = cdfP
+		par(new = T)
+		plot(cdfP, type = "l", col = color[i], xlim = c(1,100), ylim = c(0,1))
+		abline(h = s1, col = color[i])
+		abline(h = s2, col = color[i])
+
+		grps = cbind(grp_counts, grp_mids)
+		rownames(grps) = 1:101
+
+		hGrps = subset(grps, (grps[,2] >= s1) & (grps[,2] <= s2))
+		print(paste0("nrows:", nrow(hGrps)))
+		Saxis = floor(s*100)
+		if(nrow(hGrps) < 20){ next }
+		print(dim(hGrps))
+		start_point_I = as.numeric(rownames(hGrps)[1])
+		end_point_I = as.numeric(rownames(hGrps)[nrow(hGrps)])
+
+		counts = hGrps
+		lm_r = lm(counts[,2] ~ counts[,1])
+		slope = lm_r[[1]][[2]]
+
+		choosen = 1
+		start_point = start_point_I
+		end_point = end_point_I
+		if(slope > threshold){
+			choosen = 0
+			for(sp in start_point_I:(end_point_I - 20)){
+				ep = sp + 20
+				counts = grps[c(ep:sp),]
+				lm_r = lm(counts[,2] ~ counts[,1])
+				slope = lm_r[[1]][[2]]
+				if(slope <= threshold){
+					start_point = sp
+					end_point = ep
+					choosen = 1
+					break
+				}
+			}
+		}
+		if(choosen == 0){ next }
+
+		counts = grps[c(end_point:start_point),]
+		lm_r = lm(counts[,2] ~ counts[,1])
+		slope = lm_r[[1]][[2]]
+		initial_slope = slope
+		if(slope > threshold){
+			next
+		} else {
+			for(k in start_point_I:end_point_I){
+				end_point = end_point + interval
+				if(end_point > end_point_I){
+					end_point = end_point - interval
+					k = end_point_I + 1
+					break
+				}
+				counts = grps[c(start_point:end_point),]
+				lm_r = lm(counts[,2] ~ counts[,1])
+				new_slope = lm_r[[1]][[2]]
+				if(abs(initial_slope - new_slope) > diffSlope){
+					end_point = end_point - interval
+					k = end_point_I + 1
+					break
+				} else {
+						initial_slope = new_slope
+				}
+			}
+			finalEP = end_point
+
+			for(k in start_point_I:end_point_I){
+				start_point = start_point - interval
+				if(start_point < start_point_I){
+					start_point = start_point + interval
+					k = end_point_I + 1
+					break
+				}
+				counts = grps[c(start_point:end_point),]
+				lm_r = lm(counts[,2] ~ counts[,1])
+				new_slope = lm_r[[1]][[2]]
+				if(abs(initial_slope - new_slope) > diffSlope){
+					start_point = start_point + interval
+					k = end_point_I + 1
+					break
+				} else {
+					initial_slope = new_slope
+				}
+			}
+			finalSP = start_point
+			if(finalSP > 30){ next }
+			counts = grps[c(finalSP:finalEP),]
+			lm_r = lm(counts[,2] ~ counts[,1])
+			FS = lm_r[[1]][[2]]
+			line_length = finalSP - finalEP
+
+			info[,3] = paste0("grp", info[,2])
+			freqClusInfo = as.data.frame(table(info[,2]))
+			freqClusInfo = subset(freqClusInfo, freqClusInfo[,2] >= 3)
+			clusters = freqClusInfo[,1]
+			if(length(clusters) < 2) {
+				minGenes = 0
+			} else {
+				sink(paste0(as.numeric(Sys.time()),"_",output_dir,"_cluster",i,".txt"))
+				info = subset(info, info[,2] %in% clusters)
+				minGenes = sigGenes(selected_mat, info)
+				sink()
+			}
+			a = strsplit(files1[i], "=")[[1]][2]
+			fdrGenes = append(fdrGenes, minGenes)
+			tempClus = append(tempClus, as.numeric(strsplit(a, "[.]")[[1]][1]))
+			allSlopes = append(allSlopes, FS)
+			sVal = append(sVal,s)
+			yVal = append(yVal, grps[as.character(Saxis),2])
+			allLines = append(allLines, line_length)
+		}
+	}
+	dev.off()
+
+	if(is.null(tempClus)){
+		Fclus = 0
+		return(Fclus)
+	}
+
+	matStat = NULL
+	allLines = abs(allLines)
+	matStat = cbind(tempClus, allSlopes)
+	matStat = cbind(matStat, allLines)
+	matStat = cbind(matStat, sVal)
+	matStat = cbind(matStat, yVal)
+
+
+	weightAll = NULL
+
+	for(rows in 1:nrow(matStat)){
+		weight = 0
+		if(matStat[rows,2] <= 0.0872665){ weight = weight + 1 }
+		if(matStat[rows,3] >= 40){ weight = weight + 1 }
+		weightAll = append(weightAll, weight)
+	}
+	matStat = cbind(matStat, weightAll)
+
+	sClusAll = NULL
+	oClusAll = NULL
+	for(mClus in 1:nrow(matStat)){
+		selected_cluster = matStat[mClus, 1]
+		selected_cluster_file = paste(output_dir,"/",output_dir,".k=",selected_cluster,".consensusClass.csv",sep="")
+		cluster_file = read.csv(selected_cluster_file,header = FALSE)
+		matFC = stability(cluster_file, selected_cluster, output_dir)
+		sClus = summary(matFC[,1])[2]
+		sClusAll = append(sClusAll, sClus)
+		oClus = summary(matFC[,2])[2]
+		oClusAll = append(oClusAll, oClus)
+	}
+	matStat = cbind(matStat, sClusAll)
+	matStat = cbind(matStat, oClusAll)
+	matStat = cbind(matStat, fdrGenes)
+	colnames(matStat) = c("tempClus","allSlopes", "allLines", "sVal", "yVal", "weight", "sClus", "oClus", "fdrGenes")
+	write.csv(matStat, paste0(as.numeric(Sys.time()),times,"CDF.csv"))
+
+	matStat_check = subset(matStat, (matStat[,2] < threshold) & (matStat[,3] >= min_line_len) & (matStat[,7] >= sClusVal) & (matStat[,8] <= oClusVal) & (matStat[,9] >= minGenesR))
+	if(nrow(matStat_check) < 1){
+		Fclus = 0
+		return(Fclus)
+	} else {
+		matStat = matStat_check
+		clus = which(matStat[,6] == max(matStat[,6]))
+		print(paste0("clus: ", clus))
+		if(length(clus) == 1){
+			Fclus = matStat[clus,1]
+			return(Fclus)
+		}
+		matStat = matStat[clus,]
+		Fclus = matStat[,1]
+		return(Fclus)
+	}
+}
 
 
 ########################################################################################################################################################################################################
 
 
 RCC_clus = function(config_file){
-
-
-	CDF_RCC = function(zscore_mat,output_dir,maxK,times,rIN, selected_mat){
-		zscore_mat = as.matrix(zscore_mat)
-		maxK = maxK
-		color = c("blue", "red", "yellow", "green", "hotpink", "orange", "brown", "purple", "cyan")
-	
-		output_dir = paste0(output_dir, "_",times)
-		diffSlope = 0.0349066	
-	
-		if(times == 1){
-			pItem = 0.6
-			pFeature = 0.8}
-	
-		if(times == 2){
-			pItem = 0.6
-			pFeature = 1}
-	
-		if(times == 3){
-			pItem = 0.7
-			pFeature = 0.8}
-	
-		if(times == 4){
-			pItem = 0.7
-			pFeature = 1}
-	
-		if(times == 5){
-			pItem = 0.8
-			pFeature = 0.8}
-	
-		if(times == 6){
-			pItem = 0.8
-			pFeature = 1}
-	
-		if(times == 7){
-			pItem = 0.9
-			pFeature = 0.8}
-	
-		if(times == 8){
-			pItem = 0.9
-			pFeature = 1}
-	
-		interval = 5
-		sClusVal = 0.8
-		oClusVal = 0.2
-		tempClus = NULL
-		allSlopes = NULL
-		allLines = NULL
-		sVal = NULL
-		yVal = NULL
-		fdrGenes = NULL
-		minGenesR = round(((nrow(selected_mat) * minGenesP)/100),0)
-	
-		randSeed = (runif(1, min = 1, max = 10^(rIN[times])))/10000
-		seeds = randSeed
-		results = ConsensusClusterPlus(zscore_mat,maxK=maxK,
-		reps=repCount,pItem=pItem,
-		pFeature=pFeature,title= output_dir,clusterAlg=alg,
-		innerLinkage= innerLinkage, finalLinkage=innerLinkage,
-		distance=dis,plot="png",writeTable=T, seed = randSeed, verbose = F)
-		clusSlopes = NULL
-	
-		files1 = list.files(output_dir, pattern = "*Class.csv", full.names=T)
-		files2 = list.files(output_dir, pattern = "*atrix.csv", full.names=T)
-		png(paste0(as.numeric(Sys.time()),times,".png"))
-		for(i in 1:length(files1)){
-			print(i)
-			data = as.data.frame(fread(files2[i]))
-			rownames(data) = data[,1]
-			data = data[,-1]
-			m = upperTriangle(data, diag = F, byrow = T)
-			mat = as.vector(m)
-	
-			info = read.csv(files1[i], header = F)
-			rownames(info) = info[,1]
-			a = as.data.frame(table(info[,2]))
-	
-			s = sum((a[,2]*(a[,2] - 1)/2))
-			s = 1 - (s/length(mat))
-			s1 = s - 0.05
-			s2 = s + 0.05
-	
-			cdf = 0
-			cdfP = NULL
-			grp_counts = NULL
-	
-			for(c in 0:100){
-				cutoff  = c/100
-				grp_counts = append(grp_counts,cutoff)
-				cdfC = (length(subset(mat, mat <= cutoff)))/(length(mat))
-				cdf = cdf + cdfC
-				cdfP = append(cdfP, cdfC)
-			}
-			grp_mids = cdfP
-			par(new = T)
-			plot(cdfP, type = "l", col = color[i], xlim = c(1,100), ylim = c(0,1))
-			abline(h = s1, col = color[i])
-			abline(h = s2, col = color[i])
-	
-			grps = cbind(grp_counts, grp_mids)
-			rownames(grps) = 1:101
-	
-			hGrps = subset(grps, (grps[,2] >= s1) & (grps[,2] <= s2))
-			print(paste0("nrows:", nrow(hGrps)))
-			Saxis = floor(s*100)
-			if(nrow(hGrps) < 20){ next }
-			print(dim(hGrps))
-			start_point_I = as.numeric(rownames(hGrps)[1])
-			end_point_I = as.numeric(rownames(hGrps)[nrow(hGrps)])
-	
-			counts = hGrps
-			lm_r = lm(counts[,2] ~ counts[,1])
-			slope = lm_r[[1]][[2]]
-	
-			choosen = 1
-			start_point = start_point_I
-			end_point = end_point_I
-			if(slope > threshold){
-				choosen = 0
-				for(sp in start_point_I:(end_point_I - 20)){
-					ep = sp + 20
-					counts = grps[c(ep:sp),]
-					lm_r = lm(counts[,2] ~ counts[,1])
-					slope = lm_r[[1]][[2]]
-					if(slope <= threshold){
-						start_point = sp
-						end_point = ep
-						choosen = 1
-						break
-					}
-				}
-			}
-			if(choosen == 0){ next }
-	
-			counts = grps[c(end_point:start_point),]
-			lm_r = lm(counts[,2] ~ counts[,1])
-			slope = lm_r[[1]][[2]]
-			initial_slope = slope
-			if(slope > threshold){
-				next
-			} else {
-				for(k in start_point_I:end_point_I){
-					end_point = end_point + interval
-					if(end_point > end_point_I){
-						end_point = end_point - interval
-						k = end_point_I + 1
-						break
-					}
-					counts = grps[c(start_point:end_point),]
-					lm_r = lm(counts[,2] ~ counts[,1])
-					new_slope = lm_r[[1]][[2]]
-					if(abs(initial_slope - new_slope) > diffSlope){
-						end_point = end_point - interval
-						k = end_point_I + 1
-						break
-					} else {
-							initial_slope = new_slope
-					}
-				}
-				finalEP = end_point
-	
-				for(k in start_point_I:end_point_I){
-					start_point = start_point - interval
-					if(start_point < start_point_I){
-						start_point = start_point + interval
-						k = end_point_I + 1
-						break
-					}
-					counts = grps[c(start_point:end_point),]
-					lm_r = lm(counts[,2] ~ counts[,1])
-					new_slope = lm_r[[1]][[2]]
-					if(abs(initial_slope - new_slope) > diffSlope){
-						start_point = start_point + interval
-						k = end_point_I + 1
-						break
-					} else {
-						initial_slope = new_slope
-					}
-				}
-				finalSP = start_point
-				if(finalSP > 30){ next }
-				counts = grps[c(finalSP:finalEP),]
-				lm_r = lm(counts[,2] ~ counts[,1])
-				FS = lm_r[[1]][[2]]
-				line_length = finalSP - finalEP
-	
-				info[,3] = paste0("grp", info[,2])
-				freqClusInfo = as.data.frame(table(info[,2]))
-				freqClusInfo = subset(freqClusInfo, freqClusInfo[,2] >= 3)
-				clusters = freqClusInfo[,1]
-				if(length(clusters) < 2) {
-					minGenes = 0
-				} else {
-					sink(paste0(as.numeric(Sys.time()),"_",output_dir,"_cluster",i,".txt"))
-					info = subset(info, info[,2] %in% clusters)
-					minGenes = sigGenes(selected_mat, info)
-					sink()
-				}
-				a = strsplit(files1[i], "=")[[1]][2]
-				fdrGenes = append(fdrGenes, minGenes)
-				tempClus = append(tempClus, as.numeric(strsplit(a, "[.]")[[1]][1]))
-				allSlopes = append(allSlopes, FS)
-				sVal = append(sVal,s)
-				yVal = append(yVal, grps[as.character(Saxis),2])
-				allLines = append(allLines, line_length)
-			}
-		}
-		dev.off()
-	
-		if(is.null(tempClus)){
-			Fclus = 0
-			return(Fclus)
-		}
-	
-		matStat = NULL
-		allLines = abs(allLines)
-		matStat = cbind(tempClus, allSlopes)
-		matStat = cbind(matStat, allLines)
-		matStat = cbind(matStat, sVal)
-		matStat = cbind(matStat, yVal)
-	
-	
-		weightAll = NULL
-	
-		for(rows in 1:nrow(matStat)){
-			weight = 0
-			if(matStat[rows,2] <= 0.0872665){ weight = weight + 1 }
-			if(matStat[rows,3] >= 40){ weight = weight + 1 }
-			weightAll = append(weightAll, weight)
-		}
-		matStat = cbind(matStat, weightAll)
-	
-		sClusAll = NULL
-		oClusAll = NULL
-		for(mClus in 1:nrow(matStat)){
-			selected_cluster = matStat[mClus, 1]
-			selected_cluster_file = paste(output_dir,"/",output_dir,".k=",selected_cluster,".consensusClass.csv",sep="")
-			cluster_file = read.csv(selected_cluster_file,header = FALSE)
-			matFC = stability(cluster_file, selected_cluster, output_dir)
-			sClus = summary(matFC[,1])[2]
-			sClusAll = append(sClusAll, sClus)
-			oClus = summary(matFC[,2])[2]
-			oClusAll = append(oClusAll, oClus)
-		}
-		matStat = cbind(matStat, sClusAll)
-		matStat = cbind(matStat, oClusAll)
-		matStat = cbind(matStat, fdrGenes)
-		colnames(matStat) = c("tempClus","allSlopes", "allLines", "sVal", "yVal", "weight", "sClus", "oClus", "fdrGenes")
-		write.csv(matStat, paste0(as.numeric(Sys.time()),times,"CDF.csv"))
-	
-		matStat_check = subset(matStat, (matStat[,2] < threshold) & (matStat[,3] >= min_line_len) & (matStat[,7] >= sClusVal) & (matStat[,8] <= oClusVal) & (matStat[,9] >= minGenesR))
-		if(nrow(matStat_check) < 1){
-			Fclus = 0
-			return(Fclus)
-		} else {
-			matStat = matStat_check
-			clus = which(matStat[,6] == max(matStat[,6]))
-			print(paste0("clus: ", clus))
-			if(length(clus) == 1){
-				Fclus = matStat[clus,1]
-				return(Fclus)
-			}
-			matStat = matStat[clus,]
-			Fclus = matStat[,1]
-			return(Fclus)
-		}
-	}
-########################################################################################################################################################################################################
 
 	library(matrixStats)
 	library(pforeach)
@@ -1188,7 +1190,7 @@ RCC_clus = function(config_file){
 			rIN = round(runif(8, min =4, max = 12),0)
 			iterations = 8
 			cluster_parallel <<- pforeach(times = 1:iterations, .combine = append, .parallel = T) ({
-				cluster_slopes1 = CDF_RCC(zscore_mat,output_dir,maxK, times, rIN, selected_mat)
+				cluster_slopes1 = CDF_RCC(zscore_mat,output_dir,maxK, times, rIN, selected_mat, minGenesP)
 			})
 
 			if(length(cluster_parallel) == 0){
