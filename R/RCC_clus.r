@@ -1159,6 +1159,9 @@ RCC_clus = function(config_file){
 
 	setwd(finalOut)
 	recursive_consensus = function(sample_ids,col_num,threshold,output_dir){
+		dirs = list.dirs(".")
+		dirs = dirs[grepl("RCCs*", dirs)]
+		unlink(dirs, recursive = T)
 		system("rm -r RCC*")
 		maxK = min(10,ceiling(nrow(sample_ids)/10))
 
