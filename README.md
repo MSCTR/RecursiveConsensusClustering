@@ -5,6 +5,11 @@ For sample input and ouput files please download data from: https://www.msctr.or
 
 To download the latest version of the package please use the following commands:
 
-install.packages("devtools")
+install.packages(c("devtools", "clv", "fields", "matrixStats", "data.table", "cluster", "clue", "circlize", "gdata"))
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("scran", "ComplexHeatmap"))
+devtools::install_github("hoxo-m/pforeach")
 
 devtools::install_github("MSCTR/RecursiveConsensusClustering")
