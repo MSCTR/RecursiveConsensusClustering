@@ -2,6 +2,7 @@ clusterAnnotation = function(file, attribute, clus, outputDir){
   library(matrixStats)
   library(ComplexHeatmap)
   library(circlize)
+  library(clue)
 
   pMatrix.min <- function(A, B){
     norm
