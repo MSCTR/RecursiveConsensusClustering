@@ -16,4 +16,4 @@ devtools::install_github("hoxo-m/pforeach")
 
 devtools::install_github("MSCTR/RecursiveConsensusClustering")
 
-You can find the vignette at 
+You can find the vignette at https://github.com/MSCTR/RecursiveConsensusClustering/blob/master/vignette.pdf
