@@ -15,3 +15,5 @@ BiocManager::install(c("scran", "ComplexHeatmap"))
 devtools::install_github("hoxo-m/pforeach")
 
 devtools::install_github("MSCTR/RecursiveConsensusClustering")
+
+You can find the vignette at 
